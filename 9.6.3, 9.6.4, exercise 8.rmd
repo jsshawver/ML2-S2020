@@ -1,0 +1,267 @@
+---
+output: html_document
+
+---
+
+# 9.6.3 ROC Curves
+
+We begin with this portion of code is from 9.6.2, which is required for section 9.6.3.
+
+```{r message=FALSE}
+library(e1071)
+set.seed(1)
+x=matrix(rnorm(200*2), ncol=2)
+x[1:100,]=x[1:100,]+2
+x[101:150,]=x[101:150,]-2
+y=c(rep(1,150),rep(2,50))
+dat=data.frame(x=x,y=as.factor(y))
+train=sample(200,100)
+```
+
+In order to implement ROC curves in R, we must first import the ROCR package. Additionally, we must write a short function to plot an ROC curve given the following: the vector 'pred' containing a numerical score for each observation and the vector 'truth' containing the class label for each observation.
+
+```{r}
+library(ROCR)
+rocplot=function(pred, truth, ...){
+  predob = prediction(pred, truth)
+  perf = performance(predob, "tpr", "fpr")
+  plot(perf,...)}
+```
+
+By default, support vector classifiers and machines in R yield class labels. For the above function, we require fitted values, which represent the numerical scores used to determine the class label. To retrieve these fitted values, we need to use "decision.values=T" in the svm() function and use predict().
+
+```{r}
+svmfit.opt=svm(y~., data=dat[train,], kernel="radial",gamma=2, cost=1,decision.values=T)
+fitted=attributes(predict(svmfit.opt,dat[train,],decision.values=TRUE))$decision.values
+```
+
+The code above provides us what we need to plot the ROC curve. Below, we plot the ROC curve for two different SVMs. The first of which is the SVM we generated earlier, while the second is a support vector machine with a greater value for gamma.
+
+```{r}
+par(mfrow=c(1,1))
+rocplot(fitted,dat[train,"y"],main="Training Data")
+svmfit.flex=svm(y~., data=dat[train,], kernel="radial",gamma=50, cost=1, decision.values=T)
+fitted=attributes(predict(svmfit.flex,dat[train,],decision.values=T))$decision.values
+rocplot(fitted,dat[train,"y"],add=T,col="red")
+```
+
+These predictions seem to be accurate. The increase in gamma made the fit more flexible and increased accuracy.
+
+The above ROC curves pertain to the training data; we are more interested in the results for the test data.
+
+```{r}
+fitted=attributes(predict(svmfit.opt,dat[-train,],decision.values=T))$decision.values
+rocplot(fitted,dat[-train,"y"],main="Test Data")
+fitted=attributes(predict(svmfit.flex,dat[-train,],decision.values=T))$decision.values
+rocplot(fitted,dat[-train,"y"],add=T,col="red")
+```
+
+When we compute the ROC curves on the test data, the less flexible model with gamma = 2 is more accurate.
+
+# 9.6.4 SVM with Multiple Classes
+
+In the case that the response variable contains more than levels, then the svm() function will perform multi-class classiﬁcation. Multi-class classification in the svm() function uses the one-versus-one (also known as all-pairs) approach. For K classes, K(K-1)/2 SVMs are produced for every pair of classes. The class label results from each model for a given observation are aggregated and used to determine the final test classification.
+
+Below we generate a third class of observations and fit a support vector machine.
+
+```{r}
+set.seed(1)
+x=rbind(x, matrix(rnorm(50*2), ncol=2))
+y=c(y, rep(0,50))
+x[y==0,2]=x[y==0,2]+2
+dat=data.frame(x=x, y=as.factor(y))
+par(mfrow=c(1,1))
+plot(x,col=(y+1))
+```
+```{r}
+svmfit=svm(y~., data=dat, kernel="radial", cost=10, gamma=1)
+plot(svmfit, dat)
+```
+
+# Exercise 8
+
+This problem uses the OJ data set the ISLR pacakge. A seed is set so that the results can be repeated.
+
+```{r}
+library(ISLR)  
+set.seed(123)
+```
+
+### Part (a)
+Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations.
+
+```{r}
+pop <- nrow(OJ)
+sam <- 800
+train <- sample(pop, sam)
+OJ.train <- OJ[train, ]
+OJ.test <- OJ[-train, ]
+```
+
+### Part (b)
+Fit a support vector classifier to the training data using cost=0.01, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics, and describe the results obtained. 
+
+```{r}
+svc <- svm(Purchase~., kernel = "linear", data = OJ.train, cost = 0.01)
+summary(svc)
+```
+
+### Part (c)
+Display the training and test error rates.
+
+```{r}
+svc.train.pred <- predict(svc,OJ.train)
+svc.train.table <- table(OJ.train$Purchase, svc.train.pred)
+svc.train.err <- ((svc.train.table[2] + svc.train.table[3]) / 
+                  (svc.train.table[1] + svc.train.table[2] + svc.train.table[3] + svc.train.table[4]))
+print(paste("Training error: ",svc.train.err))
+
+svc.test.pred <- predict(svc,OJ.test)
+svc.test.table <- table(OJ.test$Purchase, svc.test.pred)
+svc.test.err <- ((svc.test.table[2] + svc.test.table[3]) / 
+                        (svc.test.table[1] + svc.test.table[2] + svc.test.table[3] + svc.test.table[4]))
+print(paste("Test error: ",svc.test.err))
+
+```
+
+### Part (d)
+Use the tune() function to select an optimal cost. Consider values in the range 0.01 to 10. 
+
+```{r}
+tune.out.svc <- tune(svm, Purchase ~ ., data = OJ.train, kernel = "linear",
+                 ranges=list(cost=10^seq(-2,1,0.1)))
+summary(tune.out.svc)
+```
+
+### Part (e)
+Compute the training and test error rates using this new value for cost.
+
+```{r}
+bestcost.svc <- tune.out.svc$best.parameters$cost
+print(paste("The best cost is",bestcost.svc))
+
+svc.best <- svm(Purchase~., kernel = "linear", data = OJ.train, cost = bestcost.svc)
+svc.best.train.pred <- predict(svc.best,OJ.train)
+svc.best.train.table <- table(OJ.train$Purchase, svc.best.train.pred)
+svc.best.train.err <- ((svc.best.train.table[2] + svc.best.train.table[3]) / 
+                        (svc.best.train.table[1] + svc.best.train.table[2] + svc.best.train.table[3] + svc.train.table[4]))
+print(paste("Training error after tuning: ",svc.best.train.err))
+
+svc.best.test.pred <- predict(svc.best,OJ.test)
+svc.best.test.table <- table(OJ.test$Purchase, svc.best.test.pred)
+svc.best.test.err <- ((svc.best.test.table[2] + svc.best.test.table[3]) / 
+                       (svc.best.test.table[1] + svc.best.test.table[2] + svc.best.test.table[3] + svc.best.test.table[4]))
+print(paste("Test error after tuning: ",svc.best.test.err))
+```
+
+### Part (f):
+Repeat parts (b) through (e) using a support vector machine  with a radial kernel. Use the default value for gamma.
+
+```{r}
+#f
+
+rad <- svm(Purchase~., kernel = "radial", data = OJ.train)
+
+summary(svc)
+
+rad.train.pred <- predict(rad,OJ.train)
+rad.train.table <- table(OJ.train$Purchase, rad.train.pred)
+rad.train.err <- ((rad.train.table[2] + rad.train.table[3]) / 
+                        (rad.train.table[1] + rad.train.table[2] + rad.train.table[3] + rad.train.table[4]))
+print(paste("Training error: ",rad.train.err))
+
+rad.test.pred <- predict(rad,OJ.test)
+rad.test.table <- table(OJ.test$Purchase, rad.test.pred)
+rad.test.err <- ((rad.test.table[2] + rad.test.table[3]) / 
+                       (rad.test.table[1] + rad.test.table[2] + rad.test.table[3] + rad.test.table[4]))
+print(paste("Test error: ",rad.test.err))
+
+tune.out.rad <- tune(svm, Purchase ~ ., data = OJ.train, kernel = "radial",
+                 ranges=list(cost=10^seq(-2,1,0.1)))
+summary(tune.out.rad)
+
+bestcost.rad <- tune.out.rad$best.parameters$cost
+print(paste("The best cost is",bestcost.rad))
+
+rad.best <- svm(Purchase~., kernel = "radial", data = OJ.train, cost = bestcost.rad)
+rad.best.train.pred <- predict(rad.best,OJ.train)
+rad.best.train.table <- table(OJ.train$Purchase, rad.best.train.pred)
+rad.best.train.err <- ((rad.best.train.table[2] + rad.best.train.table[3]) / 
+                             (rad.best.train.table[1] + rad.best.train.table[2] + rad.best.train.table[3] + rad.train.table[4]))
+print(paste("Training error after tunning: ",rad.best.train.err))
+
+rad.best.test.pred <- predict(rad.best,OJ.test)
+rad.best.test.table <- table(OJ.test$Purchase, rad.best.test.pred)
+rad.best.test.err <- ((rad.best.test.table[2] + rad.best.test.table[3]) / 
+                            (rad.best.test.table[1] + rad.best.test.table[2] + rad.best.test.table[3] + rad.best.test.table[4]))
+print(paste("Test error after tunning: ",rad.best.test.err))
+```
+
+### Part (g)
+Repeat parts (b) through (e) using a support vector machine  with a polynomial kernel. Set degree=2.
+
+```{r}
+
+pol <- svm(Purchase~., kernel = "poly", data = OJ.train, degree=2)
+
+summary(svc)
+
+pol.train.pred <- predict(pol,OJ.train)
+pol.train.table <- table(OJ.train$Purchase, pol.train.pred)
+pol.train.err <- ((pol.train.table[2] + pol.train.table[3]) / 
+                    (pol.train.table[1] + pol.train.table[2] + pol.train.table[3] + pol.train.table[4]))
+print(paste("Training error: ",pol.train.err))
+
+pol.test.pred <- predict(pol,OJ.test)
+pol.test.table <- table(OJ.test$Purchase, pol.test.pred)
+pol.test.err <- ((pol.test.table[2] + pol.test.table[3]) / 
+                   (pol.test.table[1] + pol.test.table[2] + pol.test.table[3] + pol.test.table[4]))
+print(paste("Test error: ",pol.test.err))
+
+tune.out.pol <- tune(svm, Purchase ~ ., data = OJ.train, kernel = "poly",degree=2,
+                     ranges=list(cost=10^seq(-2,1,0.1)))
+summary(tune.out.pol)
+
+bestcost.pol <- tune.out.pol$best.parameters$cost
+print(paste("The best cost is",bestcost.pol))
+
+pol.best <- svm(Purchase~., kernel = "poly",degree=2, data = OJ.train, cost = bestcost.pol)
+pol.best.train.pred <- predict(pol.best,OJ.train)
+pol.best.train.table <- table(OJ.train$Purchase, pol.best.train.pred)
+pol.best.train.err <- ((pol.best.train.table[2] + pol.best.train.table[3]) / 
+                         (pol.best.train.table[1] + pol.best.train.table[2] + pol.best.train.table[3] + pol.train.table[4]))
+print(paste("Training error after tuning: ",pol.best.train.err))
+
+pol.best.test.pred <- predict(pol.best,OJ.test)
+pol.best.test.table <- table(OJ.test$Purchase, pol.best.test.pred)
+pol.best.test.err <- ((pol.best.test.table[2] + pol.best.test.table[3]) / 
+                        (pol.best.test.table[1] + pol.best.test.table[2] + pol.best.test.table[3] + pol.best.test.table[4]))
+print(paste("Test error after tuning: ",pol.best.test.err))
+
+```
+
+### Part (h)
+Determine the best approach.
+
+```{r}
+
+print(paste("Best SVC Test error: ",svc.best.test.err))
+print(paste("Best Rad Test error: ",rad.best.test.err))
+print(paste("Best Polynomial Test error: ",pol.best.test.err))
+
+rocplot=function(pred, truth, ...){
+  predob = prediction(pred, truth)
+  perf = performance(predob, "tpr", "fpr")
+  plot(perf,...)}
+
+fitted.svc <- attributes(predict(svc.best,OJ.test,decision.values=TRUE))$decision.values
+rocplot(fitted.svc,OJ.test$Purchase,main="Test Data ROC")
+fitted.rad <- attributes(predict(rad.best,OJ.test,decision.values=TRUE))$decision.values
+rocplot(fitted.rad,OJ.test$Purchase,add=T,col='red')
+fitted.pol <- attributes(predict(pol.best,OJ.test,decision.values=TRUE))$decision.values
+rocplot(fitted.pol,OJ.test$Purchase,add=T,col="green")
+legend(.8,.4,legend=c("svc","rad","poly"),col=c("black","red","green"),lty=1)
+
+print("According to test error rate and the ROC plot, the linear SVC is the best model.")
+
+```
