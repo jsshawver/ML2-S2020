@@ -4,9 +4,13 @@ output:
   html_document: default
 ---
 
+# Team 9
+
+Erin DiFabio, Chris Farrell, Kris Hooper, and Jared Shawver 
+
 # 9.6.3 ROC Curves
 
-We begin with this portion of code is from 9.6.2, which is required for section 9.6.3.
+We begin with a portion of code from 9.6.2, which is required for section 9.6.3.
 
 ```{r message=FALSE}
 library(e1071)
@@ -19,7 +23,7 @@ dat=data.frame(x=x,y=as.factor(y))
 train <- sample(200,100)
 ```
 
-In order to implement ROC curves in R, we must first import the ROCR package. Additionally, we must write a short function to plot an ROC curve given the following: the vector 'pred' containing a numerical score for each observation and the vector 'truth' containing the class label for each observation.
+In order to implement ROC curves in R, we must first import the ROCR package. Additionally, we must write a short function to plot a ROC curve with the following arguments: the vector 'pred' containing a numerical score for each observation and the vector 'truth' containing the class label for each observation.
 
 ```{r}
 library(ROCR)
@@ -47,7 +51,7 @@ rocplot(fitted,dat[train,"y"],add=T,col="red")
 legend(0,1,legend=c("gamma = 2","gamma = 50"),col=c("black","red"),lty=1)
 ```
 
-These predictions seem to be incredible inaccurate. An ideal ROC curve hugs the upper-left of the graph. The increase in gamma made the fit more flexible, but decreased accuracy in this case.
+These predictions seem to be incredibly inaccurate. An ideal ROC curve hugs the upper-left of the graph. In this case, the increase in gamma made the fit more flexible, but decreased accuracy.
 
 The above ROC curves pertain to the training data; we are more interested in the results for the test data.
 
@@ -93,7 +97,7 @@ plot(svmfit, dat)
 
 # Exercise 8
 
-This problem uses the OJ data set the ISLR pacakge. A seed is set so that the results can be repeated.
+This problem uses the OJ dataset from the ISLR pacakge. A seed is set so that the results can be repeated.
 
 ```{r}
 library(ISLR)  
@@ -168,7 +172,7 @@ print(paste("Test error after tuning: ",svc.best.test.err))
 ```
 
 ### Part (f):
-Repeat parts (b) through (e) using a support vector machine  with a radial kernel. Use the default value for gamma.
+Repeat parts (b) through (e) using a support vector machine with a radial kernel. Use the default value for gamma.
 
 ```{r}
 #f
@@ -211,7 +215,7 @@ print(paste("Test error after tunning: ",rad.best.test.err))
 ```
 
 ### Part (g)
-Repeat parts (b) through (e) using a support vector machine  with a polynomial kernel. Set degree=2.
+Repeat parts (b) through (e) using a support vector machine with a polynomial kernel. Set degree=2.
 
 ```{r}
 
